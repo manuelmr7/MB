@@ -18,6 +18,7 @@ public class claseConsulta {
     static final String URL = "http://localhost:8983/solr/corpus";
     static final int NUM_PALABRAS = 5;
     static final int FILAS = 10; //Puedo poner 100
+    static final String NOM = "Manuel";
 
     public static void main(String[] args) throws IOException, SolrServerException {
         File qry = new File(System.getProperty("user.dir"),
@@ -63,8 +64,11 @@ public class claseConsulta {
         query.setRows(FILAS);
 
         QueryResponse rsp = solr.query(query);
+        int ranking=0;
         for (SolrDocument doc : rsp.getResults()) {
-            out.println(idConsulta + " " + doc.getFieldValue("id") + " " + doc.getFieldValue("score"));
+        	out.println(idConsulta + " Q0 " + doc.getFieldValue("id") + " " + ranking + " "
+        	        + doc.getFieldValue("score") + " " + NOM);
+            ranking++;
         }
         System.out.println("Consulta " + idConsulta + " [" + q + "] -> "
                 + rsp.getResults().getNumFound() + " resultados");
