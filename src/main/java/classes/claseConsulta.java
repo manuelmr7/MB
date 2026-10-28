@@ -53,13 +53,13 @@ public class claseConsulta {
     }
 
     // Parámetros de eDisMax
-    static final String QF   = "title^2 text^1";
-    static final String PF   = "title^4 text^2";
+    static final String QF   = "title^2 text^1"; //en qué campos busca y cuánto pesa cada uno
+    static final String PF   = "title^4 text^2"; //bonus extra cuando las palabras de la consulta aparecen juntas y en orden en el documento
     static final String PF2  = "text^2";
     static final String PF3  = "text^1";
-    static final String PS   = "3";
-    static final String MM   = "30%";
-    static final String TIE  = "0.3";
+    static final String PS   = "3"; //cuánto pueden estar separadas esas palabras para seguir contando como frase.
+    static final String MM   = "30%"; //porcentaje mínimo de palabras de la consulta que debe tener un documento para salir.
+    static final String TIE  = "0.3"; //cuánto suma que la palabra aparezca también en el segundo campo, además del mejor.
 
     private static void lanza(SolrClient solr, PrintWriter out, String idConsulta, String texto)
             throws SolrServerException, IOException {
