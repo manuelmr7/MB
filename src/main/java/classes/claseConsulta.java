@@ -17,7 +17,7 @@ public class claseConsulta {
 
     static final String URL = "http://localhost:8983/solr/corpus";
     static final int NUM_PALABRAS = 5;
-    static final int FILAS = 10; //Puedo poner 100
+    static final int FILAS = 100; //Puedo poner 100
     static final String NOM = "Manuel";
 
     public static void main(String[] args) throws IOException, SolrServerException {
@@ -52,29 +52,48 @@ public class claseConsulta {
         System.out.println("Resultados guardados en " + salida.getAbsolutePath());
     }
 
+    // Parámetros de eDisMax
+    static final String QF   = "title^2 text^1";
+    static final String PF   = "title^4 text^2";
+    static final String PF2  = "text^2";
+    static final String PF3  = "text^1";
+    static final String PS   = "3";
+    static final String MM   = "30%";
+    static final String TIE  = "0.3";
+
     private static void lanza(SolrClient solr, PrintWriter out, String idConsulta, String texto)
             throws SolrServerException, IOException {
 
         String q = primerasPalabras(texto, NUM_PALABRAS);
         if (q.isEmpty()) return;
 
-        SolrQuery query = new SolrQuery();
-        query.setQuery("text:(" + q + ")");
+        SolrQuery query = new SolrQuery(q);          // sin "text:(...)": lo gestiona qf
+        query.set("defType", "edismax");
+        query.set("qf", QF);
+        query.set("pf", PF);
+        query.set("pf2", PF2);
+        query.set("pf3", PF3);
+        query.set("ps", PS);
+        query.set("mm", MM);
+        query.set("tie", TIE);
+        query.set("lowercaseOperators", "false");    // "and"/"or" como palabras normales
+        query.set("stopwords", "true");
         query.setFields("id", "score");
         query.setRows(FILAS);
 
         QueryResponse rsp = solr.query(query);
-        int ranking=0;
+        int ranking = 0;
         for (SolrDocument doc : rsp.getResults()) {
-        	out.println(idConsulta + " Q0 " + doc.getFieldValue("id") + " " + ranking + " "
-        	        + doc.getFieldValue("score") + " " + NOM);
+            out.println(idConsulta + " Q0 " + doc.getFieldValue("id") + " " + ranking + " "
+                    + doc.getFieldValue("score") + " " + NOM);
             ranking++;
         }
-        System.out.println("Consulta " + idConsulta + " [" + q + "] -> "
+        System.out.println("Consulta " + idConsulta + " -> "
                 + rsp.getResults().getNumFound() + " resultados");
     }
+    
 
-    /** Devuelve las n primeras palabras, sin puntuación ni caracteres especiales de Solr. */
+    /** Devuelve las n primeras palabras (variable NUM_PALABRAS), sin puntuación ni caracteres especiales de Solr. */
     private static String primerasPalabras(String texto, int n) {
         List<String> palabras = new ArrayList<>();
         for (String w : texto.trim().split("\\s+")) {

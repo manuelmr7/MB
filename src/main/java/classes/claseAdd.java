@@ -109,6 +109,7 @@ public class claseAdd {
 
         try (SolrClient solr = new HttpSolrClient.Builder(URL).build();
              Scanner scan = new Scanner(file)) {
+        	//deleteAllDocuments(solr);
 
             String id = null;
             StringBuilder text = new StringBuilder();
