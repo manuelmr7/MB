@@ -4,8 +4,11 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Scanner;
+import java.util.Set;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -16,9 +19,24 @@ import org.apache.solr.common.SolrDocument;
 public class claseConsulta {
 
     static final String URL = "http://localhost:8983/solr/corpus";
-    static final int NUM_PALABRAS = 5;
-    static final int FILAS = 100; //Puedo poner 100
+    static final int FILAS = 100; // Evaluaciones TREC requieren recuperar hasta 100 docs
     static final String NOM = "Manuel";
+
+    // Conjunto de palabras vacías (Stop Words) en inglés para limpiar la consulta en Java
+    private static final Set<String> STOP_WORDS = new HashSet<>(Arrays.asList(
+        "a", "about", "above", "after", "again", "against", "all", "am", "an", "and",
+        "any", "are", "as", "at", "be", "because", "been", "before", "being", "below",
+        "between", "both", "but", "by", "can", "could", "did", "do", "does", "doing",
+        "down", "during", "each", "few", "for", "from", "further", "had", "has", "have",
+        "having", "he", "her", "here", "hers", "how", "i", "if", "in", "into", "is",
+        "it", "its", "me", "more", "most", "my", "no", "nor", "not", "of", "off", "on",
+        "once", "only", "or", "other", "our", "out", "over", "own", "same", "she",
+        "should", "so", "some", "such", "than", "that", "the", "their", "them", "then",
+        "there", "these", "they", "this", "those", "through", "to", "too", "under",
+        "until", "up", "very", "was", "we", "were", "what", "when", "where", "which",
+        "while", "who", "whom", "why", "with", "would", "you", "your", "results",
+        "cases", "report", "reported", "describe", "described", "patient", "patients"
+    ));
 
     public static void main(String[] args) throws IOException, SolrServerException {
         File qry = new File(System.getProperty("user.dir"),
@@ -52,32 +70,26 @@ public class claseConsulta {
         System.out.println("Resultados guardados en " + salida.getAbsolutePath());
     }
 
-    // Parámetros de eDisMax
-    static final String QF   = "title^2 text^1"; //en qué campos busca y cuánto pesa cada uno
-    static final String PF   = "title^4 text^2"; //bonus extra cuando las palabras de la consulta aparecen juntas y en orden en el documento
-    static final String PF2  = "text^2";
-    static final String PF3  = "text^1";
-    static final String PS   = "3"; //cuánto pueden estar separadas esas palabras para seguir contando como frase.
-    static final String MM   = "30%"; //porcentaje mínimo de palabras de la consulta que debe tener un documento para salir.
-    static final String TIE  = "0.3"; //cuánto suma que la palabra aparezca también en el segundo campo, además del mejor.
+    // Parámetros eDisMax reajustados para consultas médicas limpias
+    static final String QF  = "title^3 text^1"; // Mayor prioridad a términos coincidentes en título
+    static final String PF  = "title^3 text^1.5"; // Bonus por frases exactas sin stop words
+    static final String PS  = "2"; // Tolerancia estricta de distancia de frase
+    static final String MM  = "15%"; // MM bajo para no penalizar consultas con muchos términos técnicos
+    static final String TIE = "0.1";
 
     private static void lanza(SolrClient solr, PrintWriter out, String idConsulta, String texto)
             throws SolrServerException, IOException {
 
-        String q = primerasPalabras(texto, NUM_PALABRAS);
+        String q = filtrarYLimpiarConsulta(texto);
         if (q.isEmpty()) return;
 
-        SolrQuery query = new SolrQuery(q);          // sin "text:(...)": lo gestiona qf
+        SolrQuery query = new SolrQuery(q);
         query.set("defType", "edismax");
         query.set("qf", QF);
         query.set("pf", PF);
-        query.set("pf2", PF2);
-        query.set("pf3", PF3);
         query.set("ps", PS);
         query.set("mm", MM);
         query.set("tie", TIE);
-        query.set("lowercaseOperators", "false");    // "and"/"or" como palabras normales
-        query.set("stopwords", "true");
         query.setFields("id", "score");
         query.setRows(FILAS);
 
@@ -88,19 +100,19 @@ public class claseConsulta {
                     + doc.getFieldValue("score") + " " + NOM);
             ranking++;
         }
-        System.out.println("Consulta " + idConsulta + " -> "
-                + rsp.getResults().getNumFound() + " resultados");
     }
-    
 
-    /** Devuelve las n primeras palabras (variable NUM_PALABRAS), sin puntuación ni caracteres especiales de Solr. */
-    private static String primerasPalabras(String texto, int n) {
-        List<String> palabras = new ArrayList<>();
-        for (String w : texto.trim().split("\\s+")) {
-            String limpia = w.replaceAll("[^\\p{L}\\p{N}]", "");
-            if (!limpia.isEmpty()) palabras.add(limpia);
-            if (palabras.size() == n) break;
+    /** Elimina puntuación y filtra stop words, dejando solo los términos sustantivos de la consulta. */
+    private static String filtrarYLimpiarConsulta(String texto) {
+        if (texto == null) return "";
+        String[] tokens = texto.toLowerCase().replaceAll("[^a-z0-9\\s]", " ").split("\\s+");
+        List<String> validTokens = new ArrayList<>();
+
+        for (String t : tokens) {
+            if (t.length() > 1 && !STOP_WORDS.contains(t)) {
+                validTokens.add(t);
+            }
         }
-        return String.join(" ", palabras);
+        return String.join(" ", validTokens);
     }
 }
